@@ -17,20 +17,22 @@
     label{display:flex;gap:8px;align-items:center}
     input[type=number]{width:90px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text)}
   </style>
+
+  <!-- ✅ كود OneSignal الصحيح -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "c30a90d6-9eec-4015-a0ed-ac2cc13c97ac",
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "c30a90d6-9eec-4015-a0ed-ac2cc13c97ac",
+      });
     });
-  });
-</script>
+  </script>
 </head>
 <body>
   <div class="card">
     <h1>تذكير: صلِّ على النبي ﷺ</h1>
-    <p>صفحة بسيطة تبعث إشعارًا يذكّرك بصلاةٍ على الحبيب كل فترة تختارها. يمكن تثبيتها كتطبيق ويب (PWA).</p>
+    <p>صفحة بسيطة تبعث إشعارًا يذكّرك بالصلاة على الحبيب كل فترة تختارها. يمكن تثبيتها كتطبيق ويب (PWA).</p>
 
     <div class="controls">
       <label>الفترة (دقائق):
@@ -41,16 +43,14 @@
       <button id="stop" class="btn" style="background:#374151;color:#fff">أوقف التذكير</button>
     </div>
 
-    <p class="muted">ملاحظة: الإشعارات تعمل طالما الصفحة مفتوحة أو مثبتة كتطبيق ويب. لتعمل في الخلفية بالكامل تحتاج خدمة Push (سيرفر).</p>
+    <p class="muted">ملاحظة: الإشعارات تعمل طالما الصفحة مفتوحة أو مثبتة كتطبيق ويب. لتعمل في الخلفية بالكامل تحتاج خدمة Push (مثل OneSignal).</p>
 
     <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
-
     <p id="status">الحالة: لم تبدأ</p>
-    <p class="muted">لأداء تجريبي: اسمح للإشعارات عندما يطلب المتصفح الإذن.</p>
+    <p class="muted">اسمح للإشعارات عندما يطلب المتصفح الإذن.</p>
   </div>
 
   <script>
-    // --- DOM ---
     const startBtn = document.getElementById('start');
     const stopBtn = document.getElementById('stop');
     const intervalInput = document.getElementById('interval');
@@ -59,14 +59,13 @@
     let timerId = null;
     let intervalMinutes = Number(intervalInput.value) || 60;
 
-    // Check service worker support and register
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW reg failed', err));
     }
 
     async function askNotificationPermission(){
       if (!('Notification' in window)) {
-        alert('المتصفح لديك لا يدعم الإشعارات.');
+        alert('المتصفح لا يدعم الإشعارات.');
         return false;
       }
       if (Notification.permission === 'granted') return true;
@@ -89,12 +88,8 @@
         renotify: true,
         vibrate: [100,50,100]
       };
-      // If service worker registered, use it to show (better on some platforms)
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-          try { reg.showNotification(title, options); }
-          catch(e){ new Notification(title, options); }
-        });
+        navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
       } else {
         new Notification(title, options);
       }
@@ -105,9 +100,7 @@
       if (!ok) return;
       intervalMinutes = Math.max(1, Number(intervalInput.value) || 60);
       const ms = intervalMinutes * 60 * 1000;
-      // Clear if exists
       if (timerId) clearInterval(timerId);
-      // First immediate notification
       showReminderNotification();
       timerId = setInterval(showReminderNotification, ms);
       status.textContent = `الحالة: شغّال - كل ${intervalMinutes} دقيقة`;
@@ -119,14 +112,6 @@
 
     startBtn.addEventListener('click', startReminder);
     stopBtn.addEventListener('click', stopReminder);
-
-    // optional: stop when page hidden (to save resources) and resume when focus regained
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && timerId) {
-        // keep it running — or choose to stop to save battery: stopReminder();
-      }
-    });
   </script>
 </body>
 </html>
-
