@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تذكير: صلِّ على النبي ﷺ</title>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#f59e0b;--text:#e6edf3}
+    body{margin:0;font-family:Inter, system-ui, Arial; background:linear-gradient(180deg,#071029, #0b1220);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.03), rgba(255,255,255,0.01));padding:24px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6);max-width:520px;width:100%}
+    h1{margin:0 0 8px;font-size:20px}
+    p{margin:0 0 16px;opacity:0.9}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;background:var(--accent);color:#062024;text-decoration:none;font-weight:700;cursor:pointer;border:none}
+    .muted{opacity:0.8;margin-top:10px;font-size:13px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    label{display:flex;gap:8px;align-items:center}
+    input[type=number]{width:90px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--text)}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>تذكير: صلِّ على النبي ﷺ</h1>
+    <p>صفحة بسيطة تبعث إشعارًا يذكّرك بصلاةٍ على الحبيب كل فترة تختارها. يمكن تثبيتها كتطبيق ويب (PWA).</p>
+
+    <div class="controls">
+      <label>الفترة (دقائق):
+        <input id="interval" type="number" min="1" value="60" />
+      </label>
+
+      <button id="start" class="btn">شغّل التذكير</button>
+      <button id="stop" class="btn" style="background:#374151;color:#fff">أوقف التذكير</button>
+    </div>
+
+    <p class="muted">ملاحظة: الإشعارات تعمل طالما الصفحة مفتوحة أو مثبتة كتطبيق ويب. لتعمل في الخلفية بالكامل تحتاج خدمة Push (سيرفر).</p>
+
+    <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.04)">
+
+    <p id="status">الحالة: لم تبدأ</p>
+    <p class="muted">لأداء تجريبي: اسمح للإشعارات عندما يطلب المتصفح الإذن.</p>
+  </div>
+
+  <script>
+    // --- DOM ---
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    const intervalInput = document.getElementById('interval');
+    const status = document.getElementById('status');
+
+    let timerId = null;
+    let intervalMinutes = Number(intervalInput.value) || 60;
+
+    // Check service worker support and register
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW reg failed', err));
+    }
+
+    async function askNotificationPermission(){
+      if (!('Notification' in window)) {
+        alert('المتصفح لديك لا يدعم الإشعارات.');
+        return false;
+      }
+      if (Notification.permission === 'granted') return true;
+      if (Notification.permission === 'denied') {
+        alert('رفضت الإشعارات سابقًا. فكّر في إعادة تعيين إعدادات الموقع.');
+        return false;
+      }
+      const p = await Notification.requestPermission();
+      return p === 'granted';
+    }
+
+    function showReminderNotification(){
+      const title = 'صلِّ على النبي ﷺ';
+      const body = 'اللهم صل وسلم على نبينا محمد ﷺ — ذكر المحبة والشفاعة.';
+      const options = {
+        body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'salawat-reminder',
+        renotify: true,
+        vibrate: [100,50,100]
+      };
+      // If service worker registered, use it to show (better on some platforms)
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          try { reg.showNotification(title, options); }
+          catch(e){ new Notification(title, options); }
+        });
+      } else {
+        new Notification(title, options);
+      }
+    }
+
+    async function startReminder(){
+      const ok = await askNotificationPermission();
+      if (!ok) return;
+      intervalMinutes = Math.max(1, Number(intervalInput.value) || 60);
+      const ms = intervalMinutes * 60 * 1000;
+      // Clear if exists
+      if (timerId) clearInterval(timerId);
+      // First immediate notification
+      showReminderNotification();
+      timerId = setInterval(showReminderNotification, ms);
+      status.textContent = `الحالة: شغّال - كل ${intervalMinutes} دقيقة`;
+    }
+
+    function stopReminder(){
+      if (timerId) { clearInterval(timerId); timerId = null; status.textContent = 'الحالة: متوقّف'; }
+    }
+
+    startBtn.addEventListener('click', startReminder);
+    stopBtn.addEventListener('click', stopReminder);
+
+    // optional: stop when page hidden (to save resources) and resume when focus regained
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && timerId) {
+        // keep it running — or choose to stop to save battery: stopReminder();
+      }
+    });
+  </script>
+</body>
+</html>
